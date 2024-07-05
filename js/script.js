@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function () {
     .then(data => {
       jsonData = data;
       populateLocationFilter(data);
+      populateProductCategoryFilter(data);
       updateMetrics(data);
       updateCharts(data);
       renderPieChart(data);
@@ -23,8 +24,19 @@ document.addEventListener('DOMContentLoaded', function () {
       option.textContent = location;
       locationFilter.appendChild(option);
     });
-    
   }
+
+  function populateProductCategoryFilter(data) {
+    const productCategoryFilter = document.getElementById('productCategoryFilter');
+    const categories = Array.from(new Set(data.map(item => item.product_category)));
+    categories.forEach(category => {
+      const option = document.createElement('option');
+      option.value = category;
+      option.textContent = category;
+      productCategoryFilter.appendChild(option);
+    });
+  }
+
 
   function updateMetrics(data) {
     // Calculate total revenue
@@ -323,28 +335,99 @@ document.addEventListener('DOMContentLoaded', function () {
     return jsonData.filter(item => item.store_location === location);
   }
 
-  document.getElementById('locationFilter').addEventListener('change', function () {
-    const selectedLocation = this.value;
-    const filteredData = filterDataByLocation(selectedLocation);
+  function filterDataByCategory(category) {
+    if (!category) {
+      return jsonData;
+    }
+    return jsonData.filter(item => item.product_category === category);
+  }
+
+  function filterDataByDate(data, startDate, endDate) {
+    if (!startDate && !endDate) {
+      return data;
+    }
+
+    return data.filter(item => {
+      const itemDate = new Date(item.transaction_date);
+      if (startDate && itemDate < new Date(startDate)) {
+        return false;
+      }
+      if (endDate && itemDate > new Date(endDate)) {
+        return false;
+      }
+      return true;
+    });
+  }
+
+  document.getElementById('filterButton').addEventListener('click', function () {
+    const selectedLocation = document.getElementById('locationFilter').value;
+    const selectedCategory = document.getElementById('productCategoryFilter').value;
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+  
+    let filteredData = jsonData; // Mulai dengan seluruh data
+  
+    // Terapkan filter lokasi
+    filteredData = filterDataByLocation(filteredData, selectedLocation);
+  
+    // Terapkan filter kategori produk
+    filteredData = filterDataByCategory(filteredData, selectedCategory);
+  
+    // Terapkan filter berdasarkan tanggal
+    filteredData = filterDataByDate(filteredData, startDate, endDate);
+  
+    // Update metrik, chart, dan visualisasi lainnya dengan data yang difilter
     updateMetrics(filteredData);
     updateCharts(filteredData);
     renderPieChart(filteredData);
     renderProductQtyChart(filteredData);
     renderProductUSDChart(filteredData);
   });
+  
+  function filterDataByLocation(data, location) {
+    if (!location) {
+      return data; // Jika tidak ada lokasi yang dipilih, kembalikan semua data
+    }
+    return data.filter(item => item.store_location === location);
+  }
+  
+  function filterDataByCategory(data, category) {
+    if (!category) {
+      return data; // Jika tidak ada kategori yang dipilih, kembalikan semua data
+    }
+    return data.filter(item => item.product_category === category);
+  }
+  
+  function filterDataByDate(data, startDate, endDate) {
+    if (!startDate && !endDate) {
+      return data; // Jika tidak ada rentang tanggal yang dipilih, kembalikan semua data
+    }
+  
+    return data.filter(item => {
+      const itemDate = new Date(item.transaction_date);
+      if (startDate && itemDate < new Date(startDate)) {
+        return false;
+      }
+      if (endDate && itemDate > new Date(endDate)) {
+        return false;
+      }
+      return true;
+    });
+  }
+
+  document.getElementById('clearFilterButton').addEventListener('click', function () {
+    document.getElementById('locationFilter').value = '';
+    document.getElementById('productCategoryFilter').value = '';
+    document.getElementById('startDate').value = '';
+    document.getElementById('endDate').value = '';
+
+    updateMetrics(jsonData);
+    updateCharts(jsonData);
+    renderPieChart(jsonData);
+    renderProductQtyChart(jsonData);
+    renderProductUSDChart(jsonData);
+  });
 });
-
-
-// Event listener untuk perubahan urutan
-document.getElementById('orderSelect').addEventListener('change', function () {
-  const order = this.value;
-  labels = sortProductDetail(order);
-  dataValues = labels.map((detail) => productTotalUSDMap[detail]);
-  myChart.data.labels = labels;
-  myChart.data.datasets[0].data = dataValues;
-  myChart.update();
-});
-
 document.addEventListener('DOMContentLoaded', function () {
   let jsonData = [];
 
@@ -517,93 +600,93 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById("prevButton").addEventListener("click", prevButtonClick);
 });
 
-fetch('data.json')
-  .then((response) => response.json())
-  .then((data) => {
-    // Inisialisasi objek untuk menyimpan total qty per product detail per store location
-    const productQtyMap = {};
+// fetch('data.json')
+//   .then((response) => response.json())
+//   .then((data) => {
+//     // Inisialisasi objek untuk menyimpan total qty per product detail per store location
+//     const productQtyMap = {};
 
-    // Iterasi data untuk mengisi objek productQtyMap
-    data.forEach((transaction) => {
-      const storeLocation = transaction.product_detail; // Swapped
-      const productDetail = transaction.store_location; // Swapped
-      const qty = parseFloat(transaction.transaction_qty.replace(',', '.'));
+//     // Iterasi data untuk mengisi objek productQtyMap
+//     data.forEach((transaction) => {
+//       const storeLocation = transaction.product_detail; // Swapped
+//       const productDetail = transaction.store_location; // Swapped
+//       const qty = parseFloat(transaction.transaction_qty.replace(',', '.'));
 
-      // Periksa jika store location belum ada di objek
-      if (!productQtyMap[storeLocation]) {
-        productQtyMap[storeLocation] = {};
-      }
+//       // Periksa jika store location belum ada di objek
+//       if (!productQtyMap[storeLocation]) {
+//         productQtyMap[storeLocation] = {};
+//       }
 
-      // Periksa jika product detail belum ada di store location
-      if (!productQtyMap[storeLocation][productDetail]) {
-        productQtyMap[storeLocation][productDetail] = 0;
-      }
+//       // Periksa jika product detail belum ada di store location
+//       if (!productQtyMap[storeLocation][productDetail]) {
+//         productQtyMap[storeLocation][productDetail] = 0;
+//       }
 
-      // Tambahkan qty ke product detail di store location
-      productQtyMap[storeLocation][productDetail] += qty;
-    });
+//       // Tambahkan qty ke product detail di store location
+//       productQtyMap[storeLocation][productDetail] += qty;
+//     });
 
-    // Menghitung total qty untuk setiap product detail di setiap store location
-    const storeProductsQty = {};
-    for (const storeLocation in productQtyMap) {
-      storeProductsQty[storeLocation] = Object.entries(productQtyMap[storeLocation])
-        .sort(([, qtyA], [, qtyB]) => qtyB - qtyA)
-        .slice(0, 10) // Ambil 10 product detail teratas
-        .reduce((acc, [product, qty]) => {
-          acc[product] = qty;
-          return acc;
-        }, {});
-    }
+//     // Menghitung total qty untuk setiap product detail di setiap store location
+//     const storeProductsQty = {};
+//     for (const storeLocation in productQtyMap) {
+//       storeProductsQty[storeLocation] = Object.entries(productQtyMap[storeLocation])
+//         .sort(([, qtyA], [, qtyB]) => qtyB - qtyA)
+//         .slice(0, 10) // Ambil 10 product detail teratas
+//         .reduce((acc, [product, qty]) => {
+//           acc[product] = qty;
+//           return acc;
+//         }, {});
+//     }
 
-    // Sort and slice store locations
-    const sortedStoreLocations = Object.entries(storeProductsQty)
-      .sort(([, productsA], [, productsB]) => {
-        const totalQtyA = Object.values(productsA).reduce((sum, qty) => sum + qty, 0);
-        const totalQtyB = Object.values(productsB).reduce((sum, qty) => sum + qty, 0);
-        return totalQtyB - totalQtyA;
-      })
-      .slice(0, 10) // Ambil 10 store location teratas
-      .reduce((acc, [storeLocation, products]) => {
-        acc[storeLocation] = products;
-        return acc;
-      }, {});
+//     // Sort and slice store locations
+//     const sortedStoreLocations = Object.entries(storeProductsQty)
+//       .sort(([, productsA], [, productsB]) => {
+//         const totalQtyA = Object.values(productsA).reduce((sum, qty) => sum + qty, 0);
+//         const totalQtyB = Object.values(productsB).reduce((sum, qty) => sum + qty, 0);
+//         return totalQtyB - totalQtyA;
+//       })
+//       .slice(0, 10) // Ambil 10 store location teratas
+//       .reduce((acc, [storeLocation, products]) => {
+//         acc[storeLocation] = products;
+//         return acc;
+//       }, {});
 
-    // Inisialisasi label dan datasets untuk chart
-    const labels = Object.keys(sortedStoreLocations);
-    const datasets = labels.map((location) => {
-      const data = Object.entries(storeProductsQty[location]).map(([product, qty]) => qty); // Ambil hanya qty
-      return {
-        label: location,
-        data: data,
-        backgroundColor: `rgba(${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, 0.5)`,
-        borderColor: `rgba(${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, 1)`,
-        borderWidth: 1,
-      };
-    });
+//     // Inisialisasi label dan datasets untuk chart
+//     const labels = Object.keys(sortedStoreLocations);
+//     const datasets = labels.map((location) => {
+//       const data = Object.entries(storeProductsQty[location]).map(([product, qty]) => qty); // Ambil hanya qty
+//       return {
+//         label: location,
+//         data: data,
+//         backgroundColor: `rgba(${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, 0.5)`,
+//         borderColor: `rgba(${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, 1)`,
+//         borderWidth: 1,
+//       };
+//     });
 
-    // Konfigurasi chart
-    const config = {
-      type: 'bar',
-      data: {
-        labels: Object.keys(storeProductsQty[labels[0]]), // Gunakan product detail sebagai label
-        datasets: datasets,
-      },
-      options: {
-        indexAxis: 'y', // Mengatur sumbu Y sebagai sumbu kategori
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: {
-            stacked: true,
-          },
-          y: {
-            stacked: true,
-          },
-        },
-      },
-    };
+//     // Konfigurasi chart
+//     const config = {
+//       type: 'bar',
+//       data: {
+//         labels: Object.keys(storeProductsQty[labels[0]]), // Gunakan product detail sebagai label
+//         datasets: datasets,
+//       },
+//       options: {
+//         indexAxis: 'y', // Mengatur sumbu Y sebagai sumbu kategori
+//         responsive: true,
+//         maintainAspectRatio: false,
+//         scales: {
+//           x: {
+//             stacked: true,
+//           },
+//           y: {
+//             stacked: true,
+//           },
+//         },
+//       },
+//     };
 
-    // Membuat chart
-    const horizontalStackedBarAreaChart = new Chart(document.getElementById('horizontalStackedBarAreaChart'), config);
-  });
+//     // Membuat chart
+//     const horizontalStackedBarAreaChart = new Chart(document.getElementById('horizontalStackedBarAreaChart'), config);
+//   });
 
